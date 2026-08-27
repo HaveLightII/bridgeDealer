@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW"><head><meta charset="UTF-8">
+<title>橋牌牌局（純文字瀏覽器版）</title>
+<style>
+body{font-family:monospace;max-width:640px;margin:24px auto;padding:0 12px;
+line-height:1.6;background:#0f2e21;color:#f4ecd8;}
+h1{font-size:1.1em;}
+.hand{margin:0 0 18px;padding:10px 12px;border:1px solid #4a453d;}
+.hand h2{margin:0 0 6px;font-size:1em;}
+.suit-line{margin:0;}
+.red{color:#e08a76;}
+.meta{color:#c9a227;}
+a{color:#c9a227;}
+</style></head><body>
+<h1>橋牌牌局（純文字瀏覽器版）</h1>
+<p class="meta">此區為預先產生的靜態頁面，供 w3m 等不支援 JavaScript 的瀏覽器使用；若你的瀏覽器支援 JavaScript，建議改用互動版 bridge-dealer.html。</p>
+<ul>
+<li><a href="random/index.html">純隨機 4 人局 — 200 份</a></li>
+<li><a href="duplicate/index.html">複式橋牌 16 局 — 16 份（固定莊家／有利方）</a></li>
+<li><a href="three-player/index.html">三人橋牌局 — 100 份</a></li>
+<h2>終端版程式碼如下</h2>
+<h3>bridge.py</h3>
+<pre><code class="language-python">
+import random
+import requests
+
+
+url = "WEBHOOK" #HL
+
+card_list=dict()
+suits=["♣", "♦", "♥", "♠"]
+number=["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K" , "A"][::-1]
+#print(number)
+players=4#int(input("Players: "))
+cards=[[]for _ in range(players)]
+poker=[i+j for i in suits for j in number]
+o=0
+u=","
+rest=[]
+for m in range(52%players):
+    tmp=poker.pop(random.randint(0,len(poker)-1))
+    rest.append(tmp)
+while len(poker)>0:
+    x=random.randint(0,players-1)
+    if len(cards[x])!=52//players:
+#        cards[x].append(poker[o])
+#        poker.remove(poker[o])
+        cards[x].append(poker.pop(o))
+for h in range(0,players):
+    card_list[f"Player{h+1}"]=cards[h]
+#print(card_list)
+
+for k,v in card_list.items():
+    tmp=[[],[],[],[]]
+    nows=0
+    for e in v:
+        while e[0]!=suits[nows]:
+            #print(nows)
+            nows+=1
+            if nows==players:break
+        tmp[nows].append(e[1:])
+    card_list[k]=tmp
+#print(card_list)
+#print("rest: ",end="")
+#print(",".join(rest))
+#card_list[f"rest"]=rest
+#print(card_list)
+find={"Player1":"N","Player2":"E","Player3":"S","Player4":"W"}
+response=requests.post(url,data={"content":"--------------------"})
+for k,v in card_list.items():
+    hcp=0
+    for l in v:
+        for e in l:
+            if e=='A':hcp+=4
+            if e=='K':hcp+=3
+            if e=='Q':hcp+=2
+            if e=='J':hcp+=1
+    payload={
+            "content":f'{k}({find[k]}): HCP=||{hcp}\nC: {" ".join(v[0])if len(v[0])else None}\nD: {' '.join(v[1])if len(v[1])else None}\nH: {' '.join(v[2])if len(v[2])else None}\nS: {' '.join(v[3])if len(v[3])else None}||'
+    }
+    print(payload["content"])
+    response = requests.post(url,data=payload)
+response=requests.post(url,data={"content":f"Dealer: {find["Player"+str(random.randint(1,4))]}"})
+</code></pre>
+<h3>main.py</h3>
+<pre><code class="language-python">
+import discord
+from discord.ext import commands
+
+intents = discord.Intents.default()
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f'Signed in：{bot.user}')
+    try:
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} CMDs.")
+    except Exception as e:
+        print(f"Error：{e}")
+
+@bot.tree.command(name="deal", description="發一副橋牌，使用random()")
+async def deal(interaction: discord.Interaction):
+    await interaction.response.send_message("Deal started~")
+    #__import__('os').system('python bridge.py')
+    __import__('os').system('python3 bridge.py')
+
+bot.run('TOKEN')
+</code></pre>
+</ul></body></html>

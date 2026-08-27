@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>發牌 · 橋牌隨機發牌器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --felt-dark: #0f2e21;
+    --felt: #16412f;
+    --felt-light: #1d5138;
+    --card-face: #f4ecd8;
+    --card-face-dim: #e7dcc0;
+    --ink: #1c1a17;
+    --ink-soft: #4a453d;
+    --suit-red: #a6402f;
+    --suit-black: #1c1a17;
+    --gold: #c9a227;
+    --line: rgba(244,236,216,0.14);
+    --line-strong: rgba(244,236,216,0.28);
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0;
+    padding:0;
+    min-height:100%;
+    background:
+      radial-gradient(ellipse at 50% -10%, var(--felt-light) 0%, var(--felt) 45%, var(--felt-dark) 100%);
+    color: var(--card-face);
+    font-family: 'Inter', sans-serif;
+  }
+
+  body{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding: 32px 16px 80px;
+  }
+
+  header{
+    width:100%;
+    max-width: 880px;
+    text-align:center;
+    margin-bottom: 28px;
+  }
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0 0 10px;
+  }
+
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight: 600;
+    font-size: clamp(32px, 6vw, 52px);
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
+  }
+
+  .sub{
+    color: rgba(244,236,216,0.7);
+    font-size: 15px;
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  main{
+    width:100%;
+    max-width: 880px;
+  }
+
+  /* ---- 桌面（compass）版面 ---- */
+  .table{
+    display:grid;
+    grid-template-columns: 1fr 1.15fr 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      ".    north .   "
+      "west center east"
+      ".    south .   ";
+    gap: 14px;
+    align-items: center;
+    justify-items: center;
+  }
+
+  .seat-north{ grid-area: north; }
+  .seat-south{ grid-area: south; }
+  .seat-west{  grid-area: west; }
+  .seat-east{  grid-area: east; }
+  .center-info{ grid-area: center; }
+
+  .seat{
+    width: 100%;
+    max-width: 220px;
+    perspective: 1200px;
+  }
+
+  .seat-inner{
+    position: relative;
+    width: 100%;
+    min-height: 168px;
+    transition: transform 0.55s cubic-bezier(.2,.7,.3,1);
+    transform-style: preserve-3d;
+  }
+
+  .seat.revealed .seat-inner{
+    transform: rotateY(180deg);
+  }
+
+  .seat-face, .seat-back{
+    position:absolute;
+    inset:0;
+    backface-visibility: hidden;
+    border-radius: 10px;
+    border: 1px solid var(--line-strong);
+  }
+
+  .seat-back{
+    background:
+      repeating-linear-gradient(45deg, var(--felt-light) 0 8px, var(--felt) 8px 16px);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    cursor: pointer;
+    color: var(--card-face);
+  }
+
+  .seat-back:focus-visible{
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  .seat-label{
+    font-family:'Fraunces', serif;
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .seat-hint{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: rgba(244,236,216,0.65);
+  }
+
+  .seat-face{
+    background: var(--card-face);
+    color: var(--ink);
+    transform: rotateY(180deg);
+    padding: 12px 14px;
+    display:flex;
+    flex-direction:column;
+    gap: 6px;
+    text-align:left;
+  }
+
+  .seat-face .seat-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    border-bottom: 1px solid rgba(28,26,23,0.15);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+  }
+
+  .seat-face .seat-head .name{
+    font-family:'Fraunces', serif;
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  .seat-face .seat-head .hcp{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  .suit-row{
+    display:flex;
+    gap: 8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .suit-row .glyph{
+    width: 18px;
+    flex: none;
+    font-weight: 600;
+  }
+
+  .suit-row.red .glyph, .suit-row.red .cards{ color: var(--suit-red); }
+  .suit-row.black .glyph, .suit-row.black .cards{ color: var(--suit-black); }
+
+  .suit-row .cards{
+    word-break: break-word;
+  }
+
+  .suit-row .cards.empty{
+    color: rgba(28,26,23,0.35);
+  }
+
+  .center-info{
+    width: 100%;
+    max-width: 190px;
+    text-align:center;
+    padding: 18px 10px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 10px;
+    display:flex;
+    flex-direction:column;
+    gap: 10px;
+  }
+
+  .dealer-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: rgba(244,236,216,0.6);
+    text-transform: uppercase;
+  }
+
+  .dealer-name{
+    font-family:'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+
+  .board-no{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: rgba(244,236,216,0.55);
+  }
+
+  .actions{
+    margin-top: 34px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap: 14px;
+  }
+
+  button.deal-btn{
+    font-family:'Fraunces', serif;
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: 0.02em;
+    color: var(--felt-dark);
+    background: var(--gold);
+    border: none;
+    padding: 14px 40px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 10px 24px -8px rgba(201,162,39,0.55);
+  }
+
+  button.deal-btn:hover{ transform: translateY(-1px); }
+  button.deal-btn:active{ transform: translateY(0); }
+  button.deal-btn:focus-visible{
+    outline: 2px solid var(--card-face);
+    outline-offset: 3px;
+  }
+
+  .reveal-all{
+    background: none;
+    border: 1px solid var(--line-strong);
+    color: rgba(244,236,216,0.8);
+    font-family:'Inter', sans-serif;
+    font-size: 13px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .reveal-all:focus-visible{
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .empty-state{
+    text-align:center;
+    color: rgba(244,236,216,0.55);
+    font-size: 14px;
+    padding: 40px 0;
+  }
+
+  /* ---- 手機版：改為直向堆疊 N/E/S/W ---- */
+  @media (max-width: 640px){
+    .table{
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "center"
+        "north"
+        "east"
+        "south"
+        "west";
+    }
+    .seat, .center-info{ max-width: 340px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .seat-inner{ transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">Duplicate Bridge · 隨機發牌</p>
+  <h1>發牌桌</h1>
+  <p class="sub">按下「發牌」隨機洗牌並分配 52 張牌給北、東、南、西四家；每家的牌先蓋牌，點按該家牌組即可翻開查看。</p>
+</header>
+
+<main>
+  <div class="table" id="table">
+    <div class="empty-state" style="grid-column:1/-1;">尚未發牌，按下方按鈕開始。</div>
+  </div>
+
+  <div class="actions">
+    <button class="deal-btn" id="dealBtn">發牌 Deal</button>
+    <button class="reveal-all" id="revealAllBtn" hidden>全部翻開</button>
+  </div>
+</main>
+
+<script>
+(function(){
+  const SUITS = [
+    { key: 'C', glyph: '♣', color: 'black' },
+    { key: 'D', glyph: '♦', color: 'red'   },
+    { key: 'H', glyph: '♥', color: 'red'   },
+    { key: 'S', glyph: '♠', color: 'black' },
+  ];
+  // 顯示順序採標準橋牌慣例：由高至低 S H D C
+  const DISPLAY_ORDER = ['S','H','D','C'];
+
+  const RANKS = ['A','K','Q','J','10','9','8','7','6','5','4','3','2'];
+  const HCP_VALUE = { A:4, K:3, Q:2, J:1 };
+
+  const SEATS = [
+    { key: 'N', label: '北', full: 'North' },
+    { key: 'E', label: '東', full: 'East'  },
+    { key: 'S', label: '南', full: 'South' },
+    { key: 'W', label: '西', full: 'West'  },
+  ];
+
+  const tableEl = document.getElementById('table');
+  const dealBtn = document.getElementById('dealBtn');
+  const revealAllBtn = document.getElementById('revealAllBtn');
+
+  function buildDeck(){
+    const deck = [];
+    for(const suit of SUITS){
+      for(const rank of RANKS){
+        deck.push({ suit: suit.key, rank });
+      }
+    }
+    return deck;
+  }
+
+  // Fisher–Yates 洗牌
+  function shuffle(deck){
+    const arr = deck.slice();
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function dealHands(){
+    const deck = shuffle(buildDeck());
+    const hands = { N: [], E: [], S: [], W: [] };
+    SEATS.forEach((seat, idx) => {
+      hands[seat.key] = deck.slice(idx * 13, idx * 13 + 13);
+    });
+    return hands;
+  }
+
+  function groupBySuit(cards){
+    const grouped = { C: [], D: [], H: [], S: [] };
+    for(const c of cards){ grouped[c.suit].push(c.rank); }
+    for(const s of Object.keys(grouped)){
+      grouped[s].sort((a, b) => RANKS.indexOf(a) - RANKS.indexOf(b));
+    }
+    return grouped;
+  }
+
+  function calcHCP(cards){
+    return cards.reduce((sum, c) => sum + (HCP_VALUE[c.rank] || 0), 0);
+  }
+
+  function suitMeta(key){
+    return SUITS.find(s => s.key === key);
+  }
+
+  function renderSeat(seat, cards){
+    const grouped = groupBySuit(cards);
+    const hcp = calcHCP(cards);
+
+    const wrap = document.createElement('div');
+    wrap.className = `seat seat-${seat.full.toLowerCase()}`;
+
+    const inner = document.createElement('div');
+    inner.className = 'seat-inner';
+
+    const back = document.createElement('button');
+    back.className = 'seat-back';
+    back.type = 'button';
+    back.setAttribute('aria-expanded', 'false');
+    back.innerHTML = `
+      <span class="seat-label">${seat.label} ${seat.key}</span>
+      <span class="seat-hint">點按翻牌</span>
+    `;
+
+    const face = document.createElement('div');
+    face.className = 'seat-face';
+    face.innerHTML = `
+      <div class="seat-head">
+        <span class="name">${seat.label}（${seat.key}）</span>
+        <span class="hcp">HCP ${hcp}</span>
+      </div>
+      ${DISPLAY_ORDER.map(key => {
+        const meta = suitMeta(key);
+        const list = grouped[key];
+        const cardsHtml = list.length
+          ? list.join(' ')
+          : '—';
+        return `
+          <div class="suit-row ${meta.color}">
+            <span class="glyph">${meta.glyph}</span>
+            <span class="cards ${list.length ? '' : 'empty'}">${cardsHtml}</span>
+          </div>
+        `;
+      }).join('')}
+    `;
+
+    back.addEventListener('click', () => {
+      const revealed = wrap.classList.toggle('revealed');
+      back.setAttribute('aria-expanded', String(revealed));
+    });
+
+    inner.appendChild(back);
+    inner.appendChild(face);
+    wrap.appendChild(inner);
+    return wrap;
+  }
+
+  function renderCenter(dealerSeat, boardNo){
+    const el = document.createElement('div');
+    el.className = 'center-info';
+    el.innerHTML = `
+      <span class="dealer-tag">莊家 Dealer</span>
+      <span class="dealer-name">${dealerSeat.label}（${dealerSeat.key}）</span>
+      <span class="board-no">Board #${boardNo}</span>
+    `;
+    return el;
+  }
+
+  function render(hands, dealerSeat, boardNo){
+    tableEl.innerHTML = '';
+
+    const north = renderSeat(SEATS[0], hands.N);
+    const east  = renderSeat(SEATS[1], hands.E);
+    const south = renderSeat(SEATS[2], hands.S);
+    const west  = renderSeat(SEATS[3], hands.W);
+
+    north.classList.add('seat-north');
+    east.classList.add('seat-east');
+    south.classList.add('seat-south');
+    west.classList.add('seat-west');
+
+    tableEl.appendChild(north);
+    tableEl.appendChild(west);
+    tableEl.appendChild(renderCenter(dealerSeat, boardNo));
+    tableEl.appendChild(east);
+    tableEl.appendChild(south);
+
+    revealAllBtn.hidden = false;
+  }
+
+  let boardCounter = 0;
+
+  function deal(){
+    boardCounter += 1;
+    const hands = dealHands();
+    const dealerSeat = SEATS[Math.floor(Math.random() * SEATS.length)];
+    render(hands, dealerSeat, boardCounter);
+  }
+
+  dealBtn.addEventListener('click', deal);
+
+  revealAllBtn.addEventListener('click', () => {
+    const seats = tableEl.querySelectorAll('.seat');
+    const anyHidden = Array.from(seats).some(s => !s.classList.contains('revealed'));
+    seats.forEach(s => {
+      s.classList.toggle('revealed', anyHidden);
+      s.querySelector('.seat-back').setAttribute('aria-expanded', String(anyHidden));
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
