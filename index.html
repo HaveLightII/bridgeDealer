@@ -144,20 +144,25 @@
   .seat.dummy .seat-inner{ transform: rotateY(180deg); transition:none; }
   .seat.locked .seat-back{ cursor: not-allowed; opacity: 0.55; }
 
+  /* seat-face 改採一般文件流撐開 seat-inner 的高度，seat-back 疊在上方蓋住，
+     避免手牌內容（如長花色）因固定高度而溢出卡片邊界、覆蓋到下一張卡片 */
   .seat-face, .seat-back{
-    position:absolute; inset:0; backface-visibility: hidden;
+    backface-visibility: hidden;
     border-radius: 10px; border: 1px solid var(--line-strong);
+    box-sizing: border-box; width: 100%;
   }
   .seat-back{
+    position: absolute; inset: 0;
     background: repeating-linear-gradient(45deg, rgba(255,255,255,0.06) 0 8px, rgba(0,0,0,0.08) 8px 16px);
     display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 8px;
-    cursor: pointer; color: var(--text-main); width:100%; border-width:1px;
+    cursor: pointer; color: var(--text-main); border-width:1px;
   }
   .seat-back:focus-visible{ outline: 2px solid var(--accent); outline-offset: 3px; }
   .seat-label{ font-family:'Fraunces', serif; font-size: 24px; font-weight: 700; }
   .seat-hint{ font-family:'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: 0.08em; color: var(--text-soft); }
 
   .seat-face{
+    position: relative; min-height: 168px;
     background: var(--card-face); color: var(--ink); transform: rotateY(180deg);
     padding: 12px 14px; display:flex; flex-direction:column; gap: 6px; text-align:left;
   }
@@ -175,6 +180,7 @@
 
   .suit-row{ display:flex; gap: 8px; font-family:'IBM Plex Mono', monospace; font-size: 13px; line-height: 1.5; }
   .suit-row .glyph{ width: 18px; flex: none; font-weight: 600; }
+  .suit-row .cards{ overflow-wrap: break-word; word-break: break-word; }
   .suit-row.red .glyph, .suit-row.red .cards{ color: var(--suit-red); }
   .suit-row.black .glyph, .suit-row.black .cards{ color: var(--suit-black); }
   .suit-row .cards.empty{ color: rgba(28,26,23,0.35); }
