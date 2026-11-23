@@ -488,20 +488,10 @@
     return arr;
   }
 
-  function dealHands4p(rng){
+  function dealHands(rng){
     const deck = shuffle(buildDeck(), rng);
     const hands = {};
     SEATS_4P.forEach((seat, idx) => { hands[seat.key] = deck.slice(idx*13, idx*13+13); });
-    return hands;
-  }
-
-  function dealHands3p(rng){
-    const deck = shuffle(buildDeck(), rng);
-    const hands = {};
-    hands.N = deck.slice(0, 13);
-    hands.E = deck.slice(13, 26);
-    hands.S = deck.slice(26, 39);
-    hands.W = deck.slice(39, 52);
     return hands;
   }
 
@@ -794,7 +784,9 @@
 
   function deal(){
     const is3p = state.variant === '3p';
-    let dealer = null, vul = null, boardNo = null, seed = state.seed;
+    const seed = state.seed ?? randomSeed();
+    state.seed = seed;
+    let dealer = null, vul = null, boardNo = null;
 
     if (state.dealMode === 'duplicate' && !is3p){
       boardNo = state.boardNo;
@@ -803,14 +795,13 @@
       vul = row.vul;
     } else if (!is3p) {
       boardNo = null;
-      const rngForDealer = seed !== null ? mulberry32(seed + 999) : Math.random;
-      const pick = SEATS_4P[Math.floor((seed !== null ? rngForDealer() : Math.random()) * 4)];
+      const rngForDealer = mulberry32(seed + 999);
+      const pick = SEATS_4P[Math.floor(rngForDealer() * 4)];
       dealer = seatMeta(pick.key);
     }
 
-    if (seed === null){ seed = randomSeed(); state.seed = seed; }
     const rng = mulberry32(seed);
-    const hands = is3p ? dealHands3p(rng) : dealHands4p(rng);
+    const hands = dealHands(rng);
 
     renderTable(hands, dealer, vul, boardNo);
     els.statusMsg.textContent = '';
@@ -822,8 +813,8 @@
         const row = document.createElement('div');
         row.className = 'row';
         const url = buildShareURL(seed, k);
-        row.innerHTML = `<span class="seat">${seatMeta(k).label}（${k}）</span><span style="flex:1"></span><button type="button">複製加密連結</button>`;
-        row.querySelector('button').addEventListener('click', ()=> copyText(url, `已複製 ${seatMeta(k).label} 家的加密連結`));
+        row.innerHTML = `<span class="seat">${seatMeta(k).label}（${k}）</span><span style="flex:1"></span><button type="button">複製連結</button>`;
+        row.querySelector('button').addEventListener('click', ()=> copyText(url, `已複製 ${seatMeta(k).label} 家的連結`));
         els.shareLinks.appendChild(row);
       });
     }

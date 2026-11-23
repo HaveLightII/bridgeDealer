@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
-generate_static_boards.py
+staticDealer.py
 --------------------------------
 為純文字瀏覽器（例如 w3m，不執行 JavaScript）預先產生一批「靜態、已發好的」
 橋牌牌局頁面。
 
 背景：GitHub Pages 是純靜態託管，沒有伺服器可以在使用者請求當下計算亂數，
-所以無法像 bridge-dealer.html 那樣「每次點擊都即時發一副新牌」。
+所以無法像 index.html 那樣「每次點擊都即時發一副新牌」。
 折衷做法：在建置階段（開發者電腦上，或用 GitHub Actions）先產生大量獨立
 洗牌過的牌局，輸出成純 HTML（不依賴任何 CSS/JS 才能讀取內容），
 使用者在 w3m 裡用方向鍵挑一個「自己還沒看過內容」的連結點開，
 即可達到近似隨機的體驗。
 
 用法範例：
-    python3 generate_static_boards.py --out boards --random-count 200 \
+    python3 staticDealer.py --out boards --random-count 200 \
         --with-duplicate --with-three-player
 
 輸出結構：
@@ -62,18 +62,6 @@ def deal_4p(rng):
         "E": deck[13:26],
         "S": deck[26:39],
         "W": deck[39:52],
-    }
-
-
-def deal_3p(rng):
-    """北家固定為夢家（4 張，公開）；東／南／西各 16 張。"""
-    deck = build_deck()
-    rng.shuffle(deck)
-    return {
-        "N": deck[0:4],
-        "E": deck[4:20],
-        "S": deck[20:36],
-        "W": deck[36:52],
     }
 
 
@@ -136,9 +124,17 @@ def render_board_page(board_id, hands, dealer=None, vul=None, board_no=None,
     ]
 
     if is_three_player:
-        parts.append('<p class="meta">三人橋牌｜北家固定為夢家（公開 4 張）</p>')
-        best_seat = max(["E", "S", "W"], key=lambda k: calc_hcp(hands[k]))
-        parts.append(f'<p class="meta">首叫（HCP 最高）：{SEAT_LABEL[best_seat]}（{best_seat}）</p>')
+        dummy = hands["N"]
+        seats = ["E", "S", "W"]
+        views = {seat: dummy[i * 4:(i + 1) * 4] for i, seat in enumerate(seats)}
+        glyph = dict(SUITS)
+        suit, rank = dummy[12]
+        parts.append(f'<p class="meta">北家夢家的公開牌：{glyph[suit]}{rank}</p>')
+        for seat, cards in views.items():
+            shown = " ".join(glyph[suit] + rank for suit, rank in cards)
+            parts.append(f'<p>{SEAT_LABEL[seat]}家查看：{shown}（HCP={calc_hcp(cards)}）</p>')
+        best_seat = max(seats, key=lambda seat: calc_hcp(views[seat]))
+        parts.append(f'<p class="meta">首叫（查看夢家 HCP 最高）：{SEAT_LABEL[best_seat]}（{best_seat}）</p>')
     else:
         if dealer:
             parts.append(f'<p class="meta">莊家：{SEAT_LABEL[dealer]}（{dealer}）</p>')
@@ -234,7 +230,7 @@ def main():
         tp_entries = []
         for i in range(1, args.three_player_count + 1):
             rng = random.Random(master_rng.random())
-            hands = deal_3p(rng)
+            hands = deal_4p(rng)
             board_id = f"{i:04d}"
             page = render_board_page(board_id, hands, is_three_player=True,
                                       back_href="index.html")
@@ -243,7 +239,7 @@ def main():
         write(
             os.path.join(args.out, "three-player", "index.html"),
             render_index("三人橋牌局（北家固定夢家）", tp_entries, back_href="../index.html",
-                          note="北家 4 張為公開夢家；東／南／西三家各持 16 張。"),
+                          note="每家 13 張。北家為夢家，公開 1 張，其餘由東、南、西各查看 4 張。"),
         )
         sections.append(("三人橋牌局", "three-player/index.html", f"{args.three_player_count} 份"))
 
@@ -253,7 +249,7 @@ def main():
             "橋牌牌局（純文字瀏覽器版）",
             [(f"{label} — {count}", href) for label, href, count in sections],
             note="此區為預先產生的靜態頁面，供 w3m 等不支援 JavaScript 的瀏覽器使用；"
-                 "若你的瀏覽器支援 JavaScript，建議改用互動版 bridge-dealer.html。",
+                 "若你的瀏覽器支援 JavaScript，建議改用上一層的互動版 index.html。",
         ),
     )
 
